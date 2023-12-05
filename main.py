@@ -14,8 +14,9 @@ producer = KafkaProducer(
 @app.route('/message', methods=['POST'])
 def handle_api_request():
     try:
+        for i in range(1000000):
+            producer.send('WorkerTopic1', value=f'message: {i}')
         data = request.get_json()
-        producer.send('WorkerTopic', value=data)
 
         return jsonify({'message': 'Request received successfully'}), 200
     except Exception as e:

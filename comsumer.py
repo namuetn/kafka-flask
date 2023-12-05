@@ -5,7 +5,7 @@ import json
 
 # Kafka consumer configuration
 consumer = KafkaConsumer(
-    'WorkerTopic',
+    'WorkerTopic1',
     bootstrap_servers='localhost:9092',
     group_id='my-group',
     value_deserializer=lambda x: json.loads(x.decode('utf-8'))
@@ -18,4 +18,5 @@ collection = db['message']
 
 for message in consumer:
     data = message.value
-    collection.insert_one(data)
+    print(data)
+    # collection.insert_one(data)
