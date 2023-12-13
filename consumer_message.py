@@ -1,24 +1,30 @@
 from confluent_kafka import Consumer, KafkaException
 from multiprocessing import Process
+from topic import list_topics
+import os
 
-def consume_messages(consumer_conf, topics, group_id):
-    consumer_conf['group.id'] = group_id
+def consume_messages(consumer_conf, topic, group_id):
+    consumer_conf['group.id'] = f'{group_id}_{topic}'
     consumer = Consumer(consumer_conf)
-    consumer.subscribe(topics)
+    consumer.subscribe([topic])
+
+    output_file_path = f'received_messages_from_{topic}.txt'
 
     try:
-        while True:
-            msg = consumer.poll(1.0)  # Timeout 1 second
-            if msg is None:
-                continue
-            if msg.error():
-                if msg.error().code() == KafkaException._PARTITION_EOF:
-                    # End of partition event
+        with open(output_file_path, 'a', encoding='utf-8') as output_file:
+            while True:
+                msg = consumer.poll(1.0)  # Timeout 1 second
+                if msg is None:
                     continue
-                else:
-                    print(msg.error())
-                    break
-            print(f"Consumed message: {msg.value().decode('utf-8')} from topic {msg.topic()} and partition {msg.partition()}")
+                if msg.error():
+                    if msg.error().code() == KafkaException._PARTITION_EOF:
+                        # End of partition event
+                        continue
+                    else:
+                        print(msg.error())
+                        break
+                print(f"Consumed message: {msg.value().decode('utf-8')} from topic {msg.topic()} and partition {msg.partition()}")
+                output_file.write(f"{msg.value().decode('utf-8')}\n")
     except KeyboardInterrupt:
         pass
     finally:
@@ -26,7 +32,7 @@ def consume_messages(consumer_conf, topics, group_id):
 
 def main():
     bootstrap_servers = 'localhost:9092'
-    topics = ['topic-026']
+    topics = list_topics(bootstrap_servers)
     group_id = 'my_consumer_group'
 
     consumer_conf = {
@@ -35,8 +41,8 @@ def main():
     }
 
     processes = []
-    for _ in range(5):  # Create 5 consumers in the consumer group
-        process = Process(target=consume_messages, args=(consumer_conf, topics, group_id))
+    for topic in topics[:5]:  # Only take the first 5 topics
+        process = Process(target=consume_messages, args=(consumer_conf, topic, group_id))
         processes.append(process)
 
     for process in processes:
