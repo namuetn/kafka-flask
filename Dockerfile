@@ -1,20 +1,34 @@
-# Use an official Python runtime as a parent image
-FROM python:3.8-slim
+FROM ubuntu:20.04
 
-# Set the working directory to /app 
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY ./topic.py /app
+RUN apt-get update && \
+    apt-get install -y python3.8 python3-pip
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --trusted-host pypi.python.org argparse kafka-python
+RUN touch result.csv
 
-# Make port 80 available to the world outside this container
-EXPOSE 80
+COPY loop_python_file.sh /app/
+COPY consumer_message.py /app/
+COPY topic.py /app/
 
-# Define environment variable
-ENV NAME World
+RUN pip3 install kafka-python mysql-connector-python pandas confluent_kafka
 
-# Run app.py when the container launches
-CMD ["python", "topic.py"]
+ENV BOOTSTRAP_SERVERS=""
+ENV TOPIC=""
+
+CMD ["/bin/bash", "-c", "./loop_python_file.sh $BOOTSTRAP_SERVERS $TOPIC"]
+
+
+# FROM ubuntu:20.04
+
+# RUN apt-get update && \
+#     apt-get install -y python3.8 python3-pip 
+
+# WORKDIR /app
+
+# COPY producer_message.py /app/
+# COPY topic.py /app/
+
+# RUN pip3 install kafka-python confluent_kafka
+
+# CMD ["/usr/bin/python3", "producer_message.py"]

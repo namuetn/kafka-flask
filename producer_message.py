@@ -1,48 +1,38 @@
-from multiprocessing import Process, Manager
-from confluent_kafka import Producer
+import argparse
+from kafka import KafkaProducer
+import json
 from topic import list_topics
 
 
-def calculate_partition(key, num_partitions):
-    return hash(key) % num_partitions
-
-def produce_messages(topic, num_messages, num_partitions, messages, bootstrap_servers):
-    producer_conf = {'bootstrap.servers': bootstrap_servers}
-    producer = Producer(producer_conf)
-
+def send_messages(producer, topic, num_messages):
     for i in range(num_messages):
-        message_key = i
-        partition = calculate_partition(message_key, num_partitions)
+        message = i
+        producer.send(topic, value=message)
 
-        # message = f'Message {i} for {topic}'
-        message = f'{i}'
-        producer.produce(topic, key=str(message_key), value=message, partition=partition)
-
-    producer.flush()
-    messages[topic] = f'Produced {num_messages} messages for {topic}'
+    print(f'{num_messages} messages sent to {topic}')
 
 def main():
     bootstrap_servers = 'localhost:9092'
-    topics = list_topics(bootstrap_servers)
-    num_messages_per_topic = 100000
-    num_partitions = 5
 
-    with Manager() as manager:
-        messages = manager.dict()
+    parser = argparse.ArgumentParser(description='Send messages to Kafka topics')
+    parser.add_argument('--bootstrap-servers', default=bootstrap_servers, help='Kafka bootstrap servers (comma-separated)')
+    parser.add_argument('--num-messages', type=int, default=20, help='Number of messages to send to each topic')
+    # parser.add_argument('--topics', nargs='+', help='List of Kafka topics to send messages to')
 
-        processes = []
-        for topic in topics:
-            process = Process(target=produce_messages, args=(topic, num_messages_per_topic, num_partitions, messages, bootstrap_servers))
-            processes.append(process)
+    args = parser.parse_args()
 
-        for process in processes:
-            process.start()
+    # Khởi tạo producer
+    producer = KafkaProducer(bootstrap_servers=args.bootstrap_servers,
+                             value_serializer=lambda v: json.dumps(v).encode('utf-8'))
+    
+    # Gửi message vào từng topic
+    if len(list_topics(bootstrap_servers)) != 0:
+        for topic in list_topics(bootstrap_servers):
+            send_messages(producer, topic, args.num_messages)
+    else:
+        print('No topic connected')
 
-        for process in processes:
-            process.join()
-
-        for topic, message in messages.items():
-            print(message)
+    producer.close()
 
 if __name__ == '__main__':
     main()
