@@ -11,9 +11,8 @@ if [ -z "$topic" ]; then
     exit 1
 fi
 
-touch "result.csv"
 python3 -u "$topic_create" --bootstrap-servers "$bootstrap_servers" --topic "$topic"
 for ((i=1; i<="$num_consumers"; i++)); do
     echo "Running iteration $i"
-    nohup python3 -u "$consumer_message" --bootstrap-servers "$bootstrap_servers" --topic "$topic" >> "output_${topic}.txt" 2>&1 &
+    nohup python3 -u "$consumer_message" --bootstrap-servers "$bootstrap_servers" --topic "$topic" >> "./logs/output_${topic}.txt" 2>&1 &
 done

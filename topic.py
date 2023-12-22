@@ -2,6 +2,7 @@ from kafka.admin import KafkaAdminClient, NewTopic
 from kafka.errors import TopicAlreadyExistsError
 from confluent_kafka.admin import AdminClient
 import argparse
+import os
 
 
 def list_topics(bootstrap_servers):
@@ -36,9 +37,8 @@ def create_topic(topic, num_partitions, bootstrap_servers):
     try:
         admin_client.create_topics(new_topics=topic_list, validate_only=False)
         print(f'Topic "{topic}" created successfully.')
-    except TopicAlreadyExistsError as e:
+    except TopicAlreadyExistsError:
         pass
-
 
     return topic
 
@@ -50,6 +50,7 @@ def main():
     parser.add_argument('--output-file', default='results.txt', help='Output file path')
 
     args = parser.parse_args()
+    os.makedirs(f'logs/', exist_ok=True)
     create_topic(args.topic, args.partitions, args.bootstrap_servers)
 
 if __name__ == '__main__':

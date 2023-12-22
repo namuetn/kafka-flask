@@ -5,8 +5,6 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y python3.8 python3-pip
 
-RUN touch result.csv
-
 COPY loop_python_file.sh /app/
 COPY consumer_message.py /app/
 COPY topic.py /app/
