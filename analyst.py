@@ -2,16 +2,16 @@ import mysql.connector
 import pandas as pd
 
 conn = mysql.connector.connect(
-        host='172.16.1.29',
-        user='user_kafka1',
-        password='Aa@123456',
+        host='172.29.49.123',
+        user='kafka',
+        password='password',
         database='analyst_db'
     )
 cursor = conn.cursor()
 
 query_max_time_per_topic = """
     SELECT topic, MAX(execution_time)
-    FROM execute_time
+    FROM analyst
     GROUP BY topic;
 """
 cursor.execute(query_max_time_per_topic)
@@ -20,7 +20,7 @@ max_time_df = pd.DataFrame(max_time_results, columns=['topic', 'max_time'])
 
 query_min_time_per_topic = """
     SELECT topic, MIN(execution_time)
-    FROM execute_time
+    FROM analyst
     GROUP BY topic;
 """
 cursor.execute(query_min_time_per_topic)
@@ -29,7 +29,7 @@ min_time_df = pd.DataFrame(min_time_results, columns=['topic', 'min_time'])
 
 query_avg_time_per_topic = """
     SELECT topic, AVG(execution_time) AS avg_time
-    FROM execute_time
+    FROM analyst
     GROUP BY topic;
 """
 cursor.execute(query_avg_time_per_topic)
@@ -42,7 +42,7 @@ query_tp90_per_topic = """
         SELECT topic, execution_time,
             ROW_NUMBER() OVER (PARTITION BY topic ORDER BY execution_time) as row_num,
             COUNT(*) OVER (PARTITION BY topic) as total_rows
-        FROM execute_time
+        FROM analyst
     ) AS ranked
     WHERE row_num >= 0.9 * total_rows
     GROUP BY topic;

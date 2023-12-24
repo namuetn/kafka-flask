@@ -45,7 +45,7 @@ def create_topic(topic, num_partitions, bootstrap_servers):
 def main():
     parser = argparse.ArgumentParser(description='Create a Kafka consumer group.')
     parser.add_argument('--topic', required=True, help='Name of the topic')
-    parser.add_argument('--partitions', default=5, type=int, help='Number of partitions')
+    parser.add_argument('--partitions', default=10, type=int, help='Number of partitions')
     parser.add_argument('--bootstrap-servers', required=True, help='Bootstrap servers')
     parser.add_argument('--output-file', default='results.txt', help='Output file path')
 

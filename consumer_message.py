@@ -5,6 +5,7 @@ import json
 import time
 import argparse
 import mysql.connector
+from mysql.connector import pooling
 import os
 import time
 import random
@@ -19,7 +20,7 @@ def write_csv(csv_file, data_csv):
             existing_df = pd.read_csv(csv_file)
             new_df = pd.DataFrame(data_csv)
             final_df = pd.concat([existing_df, new_df], ignore_index=True)
-        else: 
+        else:
             final_df = pd.DataFrame(data_csv)
     else:
         final_df = pd.DataFrame(data_csv)
@@ -27,55 +28,45 @@ def write_csv(csv_file, data_csv):
     final_df.to_csv(csv_file, index=False)
 
 def mysql_connection(database):
-    connection = mysql.connector.connect(
-        host='172.16.1.29',
-        user='user_kafka1',
-        password='Aa@123456',
+    connection = pooling.MySQLConnectionPool(
+        pool_name="my_pool",
+        pool_size=32,
+        host='172.29.49.123',
+        user='kafka',
+        password='password',
         database=database
     )
 
-    return connection
+    return connection.get_connection()
 
 def query_mysql(message, topic):
-    '''
-        SELECT QUERY IN KAFKA_DB
-    '''
-    connection_select = mysql_connection('kafka_db')
-    cursor_select = connection_select.cursor()
+    # SELECT QUERY IN KAFKA_DB
+    with mysql_connection('kafka_db') as connection_select:
+        with connection_select.cursor() as cursor_select:
+            select_query = "SELECT * FROM stress_test WHERE name = %s"
+            try:
+                start_time = time.time()
+                cursor_select.execute(select_query, ('User_' + str(message),))
+                cursor_select.fetchall()
+                end_time = time.time()
 
-    select_query = f"SELECT * FROM stress_test WHERE name = 'User_{message}'"
-    try:
-        start_time = time.time()
-        cursor_select.execute(select_query)
-        cursor_select.fetchall()
-        end_time = time.time()
+                execution_time = end_time - start_time
+            except Exception as e:
+                print(f"Error executing SELECT query: {e}")
+                traceback.print_exc()
+                execution_time = None
 
-        execution_time = end_time - start_time
-    except Exception as e:
-        print(f"Error executing SELECT query: {e}")
-        traceback.print_exc()  # In ra stack trace đầy đủ
-        execution_time = None
-    finally:
-        cursor_select.close()
-        connection_select.close()
-
-    '''
-        INSERT QUERY IN ANALYST_DB
-    '''
-    connection_insert = mysql_connection('analyst_db')
-    cursor_insert = connection_insert.cursor()
-
-    insert_query = f"INSERT INTO execute_time(topic, name, execution_time) VALUES ('{topic}', 'User_{message}', {execution_time})"
-
-    try:
-        cursor_insert.execute(insert_query)
-        connection_insert.commit()
-    except:
-        print(f"Error executing INSERT query: {e}")
-        traceback.print_exc()  # In ra stack trace đầy đủ
-        connection_insert.rollback()
-    finally:
-        connection_insert.close()
+    # INSERT QUERY IN ANALYST_DB
+    with mysql_connection('analyst_db') as connection_insert:
+        with connection_insert.cursor() as cursor_insert:
+            insert_query = "INSERT INTO analyst(topic, name, execution_time) VALUES (%s, %s, %s)"
+            try:
+                cursor_insert.execute(insert_query, (topic, 'User_' + str(message), execution_time))
+                connection_insert.commit()
+            except Exception as e:
+                print(f"Error executing INSERT query: {e}")
+                traceback.print_exc()
+                connection_insert.rollback()
 
 def create_consumer(group_id, topic, bootstrap_servers):
     consumer = KafkaConsumer(
@@ -83,7 +74,7 @@ def create_consumer(group_id, topic, bootstrap_servers):
         group_id=group_id,
         bootstrap_servers=bootstrap_servers,
         auto_offset_reset='latest',
-        # enable_auto_commit=False,
+        enable_auto_commit=False,
         value_deserializer=lambda x: json.loads(x.decode('utf-8'))
     )
 
