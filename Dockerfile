@@ -9,7 +9,7 @@ COPY loop_python_file.sh /app/
 COPY consumer_message.py /app/
 COPY topic.py /app/
 
-RUN pip3 install kafka-python mysql-connector-python pandas confluent_kafka
+RUN pip3 install kafka-python mysql-connector-python confluent_kafka
 
 ENV BOOTSTRAP_SERVERS=""
 ENV TOPIC=""

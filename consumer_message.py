@@ -1,30 +1,13 @@
 from kafka import KafkaConsumer
-import pandas as pd
 import traceback
 import json
 import time
 import argparse
-import mysql.connector
+import mysql.connector 
+from mysql.connector import pooling
 import os
 import time
-import random
 
-
-def write_csv(csv_file, data_csv):
-    if os.path.exists(csv_file):
-        with open(csv_file, 'r') as file:
-            first_line = file.readline().strip()
-
-        if first_line:  # Non-empty file with a header
-            existing_df = pd.read_csv(csv_file)
-            new_df = pd.DataFrame(data_csv)
-            final_df = pd.concat([existing_df, new_df], ignore_index=True)
-        else: 
-            final_df = pd.DataFrame(data_csv)
-    else:
-        final_df = pd.DataFrame(data_csv)
-
-    final_df.to_csv(csv_file, index=False)
 
 def mysql_connection(database):
     connection = mysql.connector.connect(
@@ -36,13 +19,21 @@ def mysql_connection(database):
 
     return connection
 
-def query_mysql(message, topic):
-    '''
-        SELECT QUERY IN KAFKA_DB
-    '''
-    connection_select = mysql_connection('kafka_db')
-    cursor_select = connection_select.cursor()
+def mysql_connection_pooling(database):
+    connection_pool = pooling.MySQLConnectionPool(
+        pool_name="pynative_pool",
+        pool_size=5,
+        pool_reset_session=True,
+        host='172.16.1.29',
+        user='user_kafka1',
+        password='Aa@123456',
+        database=database
+    )
 
+    return connection_pool.get_connection()
+
+def query_mysql(message, topic, connection_select, connection_insert):
+    cursor_select = connection_select.cursor()
     select_query = f"SELECT * FROM stress_test WHERE name = 'User_{message}'"
     try:
         start_time = time.time()
@@ -55,16 +46,11 @@ def query_mysql(message, topic):
         print(f"Error executing SELECT query: {e}")
         traceback.print_exc()  # In ra stack trace đầy đủ
         execution_time = None
-    finally:
-        cursor_select.close()
-        connection_select.close()
 
     '''
         INSERT QUERY IN ANALYST_DB
     '''
-    connection_insert = mysql_connection('analyst_db')
     cursor_insert = connection_insert.cursor()
-
     insert_query = f"INSERT INTO execute_time(topic, name, execution_time) VALUES ('{topic}', 'User_{message}', {execution_time})"
 
     try:
@@ -74,8 +60,6 @@ def query_mysql(message, topic):
         print(f"Error executing INSERT query: {e}")
         traceback.print_exc()  # In ra stack trace đầy đủ
         connection_insert.rollback()
-    finally:
-        connection_insert.close()
 
 def create_consumer(group_id, topic, bootstrap_servers):
     consumer = KafkaConsumer(
@@ -99,13 +83,17 @@ def main():
 
     consumer = create_consumer(f'group-{args.topic}', args.topic, args.bootstrap_servers)
     try:
+        connection_select = mysql_connection_pooling('kafka_db')
+        connection_insert = mysql_connection_pooling('analyst_db')
+
         for message in consumer:
-            query_mysql(message=message.value, topic=args.topic)
-            # time.sleep(random.uniform(0.1, 0.3))
+            query_mysql(message=message.value, topic=args.topic, connection_select=connection_select, connection_insert=connection_insert)
     except Exception as e:
         print('Error:', e)
         traceback.print_exc()  # In ra stack trace đầy đủ
     finally:
+        connection_select.close()
+        connection_insert.close()
         consumer.close()
 
 if __name__ == '__main__':
