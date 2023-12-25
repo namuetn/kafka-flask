@@ -1,3 +1,4 @@
 env/
 result_topic/
 __pycache__
+logs/
