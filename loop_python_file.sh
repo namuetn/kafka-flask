@@ -4,7 +4,7 @@ consumer_message="consumer_message.py"
 topic_create="topic.py"
 bootstrap_servers="172.16.1.29:9092"
 topic="$1"
-num_consumers=5
+num_consumers=10
 
 if [ -z "$topic" ]; then
     echo "Usage: $0 <topic>"

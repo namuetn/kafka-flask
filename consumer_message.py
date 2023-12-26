@@ -5,7 +5,6 @@ import time
 import argparse
 import mysql.connector 
 from mysql.connector import pooling
-import os
 import time
 
 
@@ -33,33 +32,33 @@ def mysql_connection_pooling(database):
     return connection_pool.get_connection()
 
 def query_mysql(message, topic, connection_select, connection_insert):
-    cursor_select = connection_select.cursor()
-    select_query = f"SELECT * FROM stress_test WHERE name = 'User_{message}'"
-    try:
-        start_time = time.time()
-        cursor_select.execute(select_query)
-        cursor_select.fetchall()
-        end_time = time.time()
+    with connection_select.cursor() as cursor_select:
+        select_query = f"SELECT * FROM stress_test WHERE name = 'User_{message}'"
+        try:
+            start_time = time.time()
+            cursor_select.execute(select_query)
+            cursor_select.fetchall()
+            end_time = time.time()
 
-        execution_time = end_time - start_time
-    except Exception as e:
-        print(f"Error executing SELECT query: {e}")
-        traceback.print_exc()  # In ra stack trace đầy đủ
-        execution_time = None
+            execution_time = end_time - start_time
+        except Exception as e:
+            print(f"Error executing SELECT query: {e}")
+            traceback.print_exc()  # In ra stack trace đầy đủ
+            execution_time = None
 
     '''
         INSERT QUERY IN ANALYST_DB
     '''
-    cursor_insert = connection_insert.cursor()
-    insert_query = f"INSERT INTO execute_time(topic, name, execution_time) VALUES ('{topic}', 'User_{message}', {execution_time})"
+    with connection_insert.cursor() as cursor_insert:
+        insert_query = f"INSERT INTO execute_time(topic, name, execution_time) VALUES ('{topic}', 'User_{message}', {execution_time})"
 
-    try:
-        cursor_insert.execute(insert_query)
-        connection_insert.commit()
-    except:
-        print(f"Error executing INSERT query: {e}")
-        traceback.print_exc()  # In ra stack trace đầy đủ
-        connection_insert.rollback()
+        try:
+            cursor_insert.execute(insert_query)
+            connection_insert.commit()
+        except:
+            print(f"Error executing INSERT query: {e}")
+            traceback.print_exc()  # In ra stack trace đầy đủ
+            connection_insert.rollback()
 
 def create_consumer(group_id, topic, bootstrap_servers):
     consumer = KafkaConsumer(
